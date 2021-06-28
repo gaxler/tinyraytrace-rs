@@ -7,6 +7,7 @@ use voxel::Vox;
 struct Sphere {
     center: Vox,
     radius: f32,
+    material: image::Rgb<u8>
 }
 
 enum NearestIntersection {
@@ -48,17 +49,27 @@ impl Sphere {
     }
 }
 
-fn cast_ray(orig: Vox, dir: Vox, spehre: &Sphere) -> image::Rgb<u8> {
-    let dist = f32::MAX;
-    
-    match spehre.ray_intersect(orig, dir){
-        NearestIntersection::None => image::Rgb([55, 180, 210]),
-        NearestIntersection::Point(_) => image::Rgb([125, 125, 80])
+fn cast_ray(orig: Vox, dir: Vox, scene: &[Sphere]) -> image::Rgb<u8> {
+    let mut dist = f32::MAX;
+    let mut res = image::Rgb([55, 180, 210]);
+    let mut normal = Vox::orig();
+    //let material;
+
+    for s in scene.iter() {
+        match s.ray_intersect(orig, dir) {
+            NearestIntersection::Point(p) if (p-orig).l2() < dist => {
+                dist = (p-orig).l2();
+                res = s.material;
+                // something with material
+            }
+            _ => continue
+        }
     }
 
+    res
 }
 
-fn render(spehre: &Sphere) {
+fn render(spehres: Vec<Sphere>) {
     let imgx = 1024;
     let imgy = 768;
     let mut imgbuf = image::ImageBuffer::new(imgx, imgy);
@@ -80,7 +91,7 @@ fn render(spehre: &Sphere) {
 
         let dir = Vox::new((x, y, -1.0)).normalized();
 
-        *pixel = cast_ray(ray_origin, dir, spehre);
+        *pixel = cast_ray(ray_origin, dir, &spehres);
     }
 
     imgbuf.save("test.png");
@@ -90,6 +101,14 @@ fn main() {
     let s = Sphere {
         center: Vox::new((-3., 5., -16.)),
         radius: 5.0,
+        material: image::Rgb([125, 125, 80])
     };
-    render(&s);
+
+    let s2 = Sphere {
+        center: Vox::new((-2., 0., -4.)),
+        radius: 1.0,
+        material: image::Rgb([15, 125, 0])
+    };
+
+    render(vec![s, s2]);
 }

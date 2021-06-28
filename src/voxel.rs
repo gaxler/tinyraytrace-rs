@@ -9,6 +9,14 @@ pub struct Vox {
 }
 
 impl Vox {
+    pub fn orig() -> Self {
+        Self {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        }
+    }
+    
     pub fn new(v: (f32, f32, f32)) -> Self {
         Self {
             x: v.0,

@@ -53,6 +53,8 @@ fn render(spehre: &Sphere) {
     let wh_ratio = width / height;
     let tan_fov = FRAC_2_PI.tan();
 
+    let ray_origin = Vox::new((0f32, 0f32, 0f32));
+
     // Iterate over the coordinates and pixels of the image
     for (i, j, pixel) in imgbuf.enumerate_pixels_mut() {
 
@@ -64,13 +66,13 @@ fn render(spehre: &Sphere) {
 
         let dir = Vox::new((x,y, -1.0)).normalized();
 
-        *pixel = cast_ray(Vox::new((0.,0.,0.)), dir, spehre);
+        *pixel = cast_ray(ray_origin, dir, spehre);
     }
 
     imgbuf.save("test.png");
 }
 
 fn main() {
-    let s = Sphere{center: Vox::new((-3., 0., -16.)), radius: 2.0};
+    let s = Sphere{center: Vox::new((-3., 5., -16.)), radius: 5.0};
     render(&s);
 }

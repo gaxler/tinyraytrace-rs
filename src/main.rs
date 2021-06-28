@@ -22,7 +22,7 @@ impl Sphere {
 
         let dist_ctr_proj = (self.center - proj).l2();
 
-        if dist_ctr_proj < self.radius {
+        if dist_ctr_proj > self.radius {
             return false;
         }
 

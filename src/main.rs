@@ -1,49 +1,64 @@
 mod voxel;
 extern crate image;
 
-use voxel::Vox;
 use std::f32::consts::FRAC_2_PI;
+use voxel::Vox;
 
 struct Sphere {
     center: Vox,
     radius: f32,
 }
 
+enum NearestIntersection {
+    Point(Vox),
+    None,
+}
+
 impl Sphere {
-    
-    fn ray_intersect(&self, orig: Vox, direction: Vox) -> bool {
+    fn ray_intersect(&self, orig: Vox, direction: Vox) -> NearestIntersection {
         let v = self.center - orig;
         let u = direction.normalized();
+
         let dist_orig_proj = v.dot(&u);
+
         if dist_orig_proj < 0. {
-            return false;
+            return NearestIntersection::None;
         }
         let proj = orig + u.walk_dir(dist_orig_proj);
 
         let dist_ctr_proj = (self.center - proj).l2();
 
         if dist_ctr_proj > self.radius {
-            return false;
+            return NearestIntersection::None;
         }
 
-        true
+        let dist_proj_intersect1 = (self.radius.powf(2.0) - dist_ctr_proj.powf(2.)).sqrt();
 
-        // let dist_inter_proj = (self.radius.powf(2.) - dist_ctr_proj.powf(2.)).sqrt();
+        match (
+            dist_orig_proj - dist_proj_intersect1,
+            dist_orig_proj + dist_proj_intersect1,
+        ) {
+            // Origin in inside the sphere
+            (o_i1, _) if o_i1 > 0. => NearestIntersection::Point(proj.walk_dir(o_i1)),
+            // Assuming light can move thorugh sphere we'll see the other intersection point
+            (_, o_i2) if o_i2 > 0. => NearestIntersection::Point(proj.walk_dir(o_i2)), 
+            _ => NearestIntersection::None,
+        }
+
     }
 }
 
 fn cast_ray(orig: Vox, dir: Vox, spehre: &Sphere) -> image::Rgb<u8> {
     let dist = f32::MAX;
-    if !spehre.ray_intersect(orig, dir) {
-        image::Rgb([55, 180, 210])
-    } else {
-        image::Rgb([125, 125, 80])
-    }
     
+    match spehre.ray_intersect(orig, dir){
+        NearestIntersection::None => image::Rgb([55, 180, 210]),
+        NearestIntersection::Point(_) => image::Rgb([125, 125, 80])
+    }
+
 }
 
 fn render(spehre: &Sphere) {
-
     let imgx = 1024;
     let imgy = 768;
     let mut imgbuf = image::ImageBuffer::new(imgx, imgy);
@@ -57,14 +72,13 @@ fn render(spehre: &Sphere) {
 
     // Iterate over the coordinates and pixels of the image
     for (i, j, pixel) in imgbuf.enumerate_pixels_mut() {
+        let rel_w = (i as f32 + 0.5) / width;
+        let rel_h = (j as f32 + 0.5) / height;
 
-        let rel_w = (i as f32 + 0.5)/ width;
-        let rel_h = (j as f32 + 0.5)/ height;
+        let x = (2.0 * rel_w - 1.0) * tan_fov * wh_ratio;
+        let y = (2.0 * rel_h - 1.0) * tan_fov;
 
-        let x = (2.0*rel_w - 1.0)*tan_fov*wh_ratio;
-        let y = (2.0*rel_h - 1.0)*tan_fov;
-
-        let dir = Vox::new((x,y, -1.0)).normalized();
+        let dir = Vox::new((x, y, -1.0)).normalized();
 
         *pixel = cast_ray(ray_origin, dir, spehre);
     }
@@ -73,6 +87,9 @@ fn render(spehre: &Sphere) {
 }
 
 fn main() {
-    let s = Sphere{center: Vox::new((-3., 5., -16.)), radius: 5.0};
+    let s = Sphere {
+        center: Vox::new((-3., 5., -16.)),
+        radius: 5.0,
+    };
     render(&s);
 }

@@ -61,10 +61,10 @@ impl Sphere {
             dist_orig_proj - dist_proj_intersect1,
             dist_orig_proj + dist_proj_intersect1,
         ) {
-            (o_i1, _) if o_i1 > 0. => HitPoint::Point(proj.walk_dir(o_i1)),
+            (o_i1, _) if o_i1 > 0. => HitPoint::Point(orig + u.walk_dir(o_i1)),
             // Origin is inside the sphere
             // Assuming light can move thorugh sphere we'll see the other intersection point
-            (_, o_i2) if o_i2 > 0. => HitPoint::Point(proj.walk_dir(o_i2)), 
+            (_, o_i2) if o_i2 > 0. => HitPoint::Point(orig + u.walk_dir(o_i2)),
             _ => HitPoint::None,
         }
 

@@ -40,9 +40,16 @@ impl Material {
 
 impl Default for Material {
     fn default() -> Self {
-        Self::new( (0.2, 0.7, 0.8))
+        Self::new((0.2, 0.7, 0.8))
     }
 }
+
+#[derive(Clone, Copy)]
+struct Light {
+    position: Vox,
+    intensity: f32,
+}
+
 /// Point where our ray hits and object.
 enum HitPoint {
     Point(Vox),
@@ -79,31 +86,43 @@ impl Sphere {
             (_, o_i2) if o_i2 > 0. => HitPoint::Point(orig + u.walk_dir(o_i2)),
             _ => HitPoint::None,
         }
-
     }
 }
 
-fn cast_ray(orig: Vox, dir: Vox, scene: &[Sphere]) -> image::Rgb<u8> {
+fn cast_ray(orig: Vox, dir: Vox, scene: &[Sphere], lights: &[Light]) -> Material {
     let mut dist = f32::MAX;
-    let mut res = image::Rgb([55, 180, 210]);
+    let mut hit_point: Option<Vox> = None;
     let mut normal = Vox::orig();
-    //let material;
+    let mut material = Material::default();
 
     for s in scene.iter() {
         match s.ray_intersect(orig, dir) {
-            NearestIntersection::Point(p) if (p-orig).l2() < dist => {
-                dist = (p-orig).l2();
-                res = s.material;
-                // something with material
+            // Hit is the point where our ray hits the sphere
+            HitPoint::Point(p) if (p - orig).l2() < dist => {
+                dist = (p - orig).l2();
+                material = s.material;
+                normal = (p - s.center).normalized();
+                hit_point = Some(p);
             }
-            _ => continue
+            _ => continue,
         }
     }
 
-    res
+    if let Some(p) = hit_point {
+        let mut light_intensity = 0f32;
+        for cur in lights.iter() {
+            let ldir = (cur.position - p).normalized();
+            // dbg!(ldir.dot(&normal), normal.dot(&ldir), normal.l2(), ldir.l2());
+            let psi_ = ldir.dot(&normal).max(0.);
+            light_intensity += cur.intensity * psi_;
+        }
+        material.adjust_light(light_intensity);
+    }
+
+    material
 }
 
-fn render(spehres: Vec<Sphere>) {
+fn render(spehres: Vec<Sphere>, lights: Vec<Light>, output: &str) {
     let imgx = 1024;
     let imgy = 768;
     let mut imgbuf = image::ImageBuffer::new(imgx, imgy);
@@ -125,41 +144,44 @@ fn render(spehres: Vec<Sphere>) {
 
         let dir = Vox::new((x, y, -1.0)).normalized();
 
-        *pixel = cast_ray(ray_origin, dir, &spehres).pixel;
+        *pixel = cast_ray(ray_origin, dir, &spehres, &lights).pixel;
     }
 
-    imgbuf.save("test.png");
+    imgbuf.save(output);
 }
 
 fn main() {
-
     let ivory = Material::new((0.4, 0.4, 0.3));
     let red_rubber = Material::new((0.3, 0.1, 0.1));
 
     let s = Sphere {
         center: Vox::new((-3., 0., -16.)),
         radius: 2.0,
-        material: ivory
+        material: ivory,
     };
 
     let s2 = Sphere {
         center: Vox::new((-1., -1.5, -12.)),
         radius: 2.0,
-        material: red_rubber
+        material: red_rubber,
     };
 
     let s3 = Sphere {
         center: Vox::new((1.5, -0.5, -18.)),
         radius: 3.0,
-        material: red_rubber
+        material: red_rubber,
     };
 
     let s4 = Sphere {
         center: Vox::new((7., 5., -18.)),
         radius: 4.0,
-        material: ivory
+        material: ivory,
     };
 
-    
-    render(vec![s, s2, s3, s4]);
+    let light = Light {
+        position: Vox::new((-20., 20., 20.)),
+        intensity: 1.5,
+    };
+
+    render(vec![s, s2, s3, s4], vec![light], "test.png");
 }

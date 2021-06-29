@@ -1,7 +1,7 @@
 /// This is a helper module to create 3d vec functionaliy
 use std::ops::{Add, Div, Mul, Sub};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Vox {
     x: f32,
     y: f32,
@@ -16,7 +16,7 @@ impl Vox {
             z: 0.,
         }
     }
-    
+
     pub fn new(v: (f32, f32, f32)) -> Self {
         Self {
             x: v.0,

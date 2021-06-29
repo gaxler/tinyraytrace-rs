@@ -7,23 +7,35 @@ use voxel::Vox;
 struct Sphere {
     center: Vox,
     radius: f32,
-    material: Material
+    material: Material,
 }
 
 #[derive(Clone, Copy)]
 struct Material {
     color: (f32, f32, f32),
-    pixel: image::Rgb<u8>
+    pixel: image::Rgb<u8>,
 }
 
 impl Material {
-
-    fn new(color: (f32, f32, f32)) -> Self {
+    fn _to_pixel(color: (f32, f32, f32)) -> image::Rgb<u8> {
         let (r, g, b) = color;
-        let pixel = image::Rgb([(255.*r) as u8, (255.*g) as u8, (255.*b) as u8]);
-        Self{color, pixel}
+        image::Rgb([(255. * r) as u8, (255. * g) as u8, (255. * b) as u8])
     }
 
+    fn new(color: (f32, f32, f32)) -> Self {
+        let pixel = Self::_to_pixel(color);
+        Self { color, pixel }
+    }
+
+    fn adjust_light(&mut self, intensity: f32) {
+        let (r, g, b) = self.color;
+        self.color = (
+            (r * intensity).max(0.).min(1.),
+            (g * intensity).max(0.).min(1.),
+            (b * intensity).max(0.).min(1.),
+        );
+        self.pixel = Self::_to_pixel(self.color);
+    }
 }
 
 impl Default for Material {

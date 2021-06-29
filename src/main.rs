@@ -39,7 +39,7 @@ impl Sphere {
             dist_orig_proj - dist_proj_intersect1,
             dist_orig_proj + dist_proj_intersect1,
         ) {
-            // Origin in inside the sphere
+            // Origin is inside the sphere
             (o_i1, _) if o_i1 > 0. => NearestIntersection::Point(proj.walk_dir(o_i1)),
             // Assuming light can move thorugh sphere we'll see the other intersection point
             (_, o_i2) if o_i2 > 0. => NearestIntersection::Point(proj.walk_dir(o_i2)), 
@@ -79,7 +79,7 @@ fn render(spehres: Vec<Sphere>) {
     let wh_ratio = width / height;
     let tan_fov = FRAC_2_PI.tan();
 
-    let ray_origin = Vox::new((0f32, 0f32, 0f32));
+    let ray_origin = Vox::orig();
 
     // Iterate over the coordinates and pixels of the image
     for (i, j, pixel) in imgbuf.enumerate_pixels_mut() {
@@ -98,17 +98,37 @@ fn render(spehres: Vec<Sphere>) {
 }
 
 fn main() {
+
+    let ivory = image::Rgb([125u8, 125, 80]);
+    let red_rubber = image::Rgb([80u8, 26, 26]);
+
+
+
+
     let s = Sphere {
-        center: Vox::new((-3., 5., -16.)),
-        radius: 5.0,
-        material: image::Rgb([125, 125, 80])
+        center: Vox::new((-3., 0., -16.)),
+        radius: 2.0,
+        material: ivory
     };
 
     let s2 = Sphere {
-        center: Vox::new((-2., 0., -4.)),
-        radius: 1.0,
-        material: image::Rgb([15, 125, 0])
+        center: Vox::new((-1., -1.5, -12.)),
+        radius: 2.0,
+        material: red_rubber
     };
 
-    render(vec![s, s2]);
+    let s3 = Sphere {
+        center: Vox::new((1.5, -0.5, -18.)),
+        radius: 3.0,
+        material: red_rubber
+    };
+
+    let s4 = Sphere {
+        center: Vox::new((7., 5., -18.)),
+        radius: 4.0,
+        material: ivory
+    };
+
+    
+    render(vec![s, s2, s3, s4]);
 }

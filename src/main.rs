@@ -7,30 +7,52 @@ use voxel::Vox;
 struct Sphere {
     center: Vox,
     radius: f32,
-    material: image::Rgb<u8>
+    material: Material
 }
 
-enum NearestIntersection {
+#[derive(Clone, Copy)]
+struct Material {
+    color: (f32, f32, f32),
+    pixel: image::Rgb<u8>
+}
+
+impl Material {
+
+    fn new(color: (f32, f32, f32)) -> Self {
+        let (r, g, b) = color;
+        let pixel = image::Rgb([(255.*r) as u8, (255.*g) as u8, (255.*b) as u8]);
+        Self{color, pixel}
+    }
+
+}
+
+impl Default for Material {
+    fn default() -> Self {
+        Self::new( (0.2, 0.7, 0.8))
+    }
+}
+/// Point where our ray hits and object.
+enum HitPoint {
     Point(Vox),
     None,
 }
 
 impl Sphere {
-    fn ray_intersect(&self, orig: Vox, direction: Vox) -> NearestIntersection {
+    fn ray_intersect(&self, orig: Vox, direction: Vox) -> HitPoint {
         let v = self.center - orig;
         let u = direction.normalized();
 
         let dist_orig_proj = v.dot(&u);
 
         if dist_orig_proj < 0. {
-            return NearestIntersection::None;
+            return HitPoint::None;
         }
         let proj = orig + u.walk_dir(dist_orig_proj);
 
         let dist_ctr_proj = (self.center - proj).l2();
 
         if dist_ctr_proj > self.radius {
-            return NearestIntersection::None;
+            return HitPoint::None;
         }
 
         let dist_proj_intersect1 = (self.radius.powf(2.0) - dist_ctr_proj.powf(2.)).sqrt();
@@ -39,11 +61,11 @@ impl Sphere {
             dist_orig_proj - dist_proj_intersect1,
             dist_orig_proj + dist_proj_intersect1,
         ) {
+            (o_i1, _) if o_i1 > 0. => HitPoint::Point(proj.walk_dir(o_i1)),
             // Origin is inside the sphere
-            (o_i1, _) if o_i1 > 0. => NearestIntersection::Point(proj.walk_dir(o_i1)),
             // Assuming light can move thorugh sphere we'll see the other intersection point
-            (_, o_i2) if o_i2 > 0. => NearestIntersection::Point(proj.walk_dir(o_i2)), 
-            _ => NearestIntersection::None,
+            (_, o_i2) if o_i2 > 0. => HitPoint::Point(proj.walk_dir(o_i2)), 
+            _ => HitPoint::None,
         }
 
     }
@@ -91,7 +113,7 @@ fn render(spehres: Vec<Sphere>) {
 
         let dir = Vox::new((x, y, -1.0)).normalized();
 
-        *pixel = cast_ray(ray_origin, dir, &spehres);
+        *pixel = cast_ray(ray_origin, dir, &spehres).pixel;
     }
 
     imgbuf.save("test.png");
@@ -99,11 +121,8 @@ fn render(spehres: Vec<Sphere>) {
 
 fn main() {
 
-    let ivory = image::Rgb([125u8, 125, 80]);
-    let red_rubber = image::Rgb([80u8, 26, 26]);
-
-
-
+    let ivory = Material::new((0.4, 0.4, 0.3));
+    let red_rubber = Material::new((0.3, 0.1, 0.1));
 
     let s = Sphere {
         center: Vox::new((-3., 0., -16.)),

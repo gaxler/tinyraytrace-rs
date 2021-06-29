@@ -87,7 +87,7 @@ fn render(spehres: Vec<Sphere>) {
         let rel_h = (j as f32 + 0.5) / height;
 
         let x = (2.0 * rel_w - 1.0) * tan_fov * wh_ratio;
-        let y = (2.0 * rel_h - 1.0) * tan_fov;
+        let y = -(2.0 * rel_h - 1.0) * tan_fov;
 
         let dir = Vox::new((x, y, -1.0)).normalized();
 

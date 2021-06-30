@@ -1,5 +1,5 @@
 //! This is a basic ray tracer. It is based on [Understandable RayTracing in 256 lines of bare C++](https://github.com/ssloy/tinyraytracer/wiki)
-//! Comming from a computer vision background, I had some idea how ray tracing might work, this is for me to actually understand it.
+//! Coming from a computer vision background, I had some idea how ray tracing might work, this is for me to actually understand it.
 //! To make it more fun, I wanna try and write documentation that's going to cover some fundamental concepts as part of it.
 //!
 //! ( _This is a work in progress and I don't add documentation in a linear fashion, so it might be a bit early to try and read it_)
@@ -8,7 +8,7 @@
 //! (_caveat: I'm learning about it pretty much for the first time as I implement this._)
 //!
 //!
-//! We have a 3-D model of some object in the world, and we want to epxress this model as a 2-D computre image. To construct our image we need to decide what color to assign to each pixel of the image.
+//! We have a 3-D model of some object in the world, and we want to express this model as a 2-D computer image. To construct our image we need to decide what color to assign to each pixel of the image.
 //! Since the real world is complex we don't have an easy method to determine the color we should assign to each image pixel and we relay on simulations of light rays.
 //! Now, lets say more about what we mean by complex world and by simulation of a light ray.
 //! 
@@ -16,12 +16,12 @@
 //! Also, those properties interact with each other (light sources act in tandem on an object, light reflects from one object to another etc..). 
 //! We do light ray simulation is by modeling how a ray of light behaves in the world. Direction at which it meets an object, how it is reflect from the object, how it eventually hits our eye etc...
 //!
-//! To see how compelx this can get, let's take a look at our goal with this project. We want to generate the following image: 
+//! To see how complex this can get, let's take a look at our goal with this project. We want to generate the following image:
 //! <p style="text-align:center;"><img src="https://raw.githubusercontent.com/ssloy/tinyraytracer/homework_assignment/out-envmap-duck.jpg"  width="500"/></p>
 //!
 //! ## How we trace rays?
 //! Since we are going to project from 3 to 2 dimension we need to pick a viewing angle (projection plane). 
-//! This plane is going to We going to call this viewing angle a camre.
+//! This plane is going to We going to call this viewing angle a camera.
 //! 
 //! [Ray-Sphere intersection](struct.Sphere.html#method.ray_intersect)
 //!

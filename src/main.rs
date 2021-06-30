@@ -11,18 +11,18 @@
 //! We have a 3-D model of some object in the world, and we want to express this model as a 2-D computer image. To construct our image we need to decide what color to assign to each pixel of the image.
 //! Since the real world is complex we don't have an easy method to determine the color we should assign to each image pixel and we relay on simulations of light rays.
 //! Now, lets say more about what we mean by complex world and by simulation of a light ray.
-//! 
-//! The world is complex because objects have many colors, those colors change with lighting and reflection properties of the materials they are made of. 
-//! Also, those properties interact with each other (light sources act in tandem on an object, light reflects from one object to another etc..). 
+//!
+//! The world is complex because objects have many colors, those colors change with lighting and reflection properties of the materials they are made of.
+//! Also, those properties interact with each other (light sources act in tandem on an object, light reflects from one object to another etc..).
 //! We do light ray simulation is by modeling how a ray of light behaves in the world. Direction at which it meets an object, how it is reflect from the object, how it eventually hits our eye etc...
 //!
 //! To see how complex this can get, let's take a look at our goal with this project. We want to generate the following image:
 //! <p style="text-align:center;"><img src="https://raw.githubusercontent.com/ssloy/tinyraytracer/homework_assignment/out-envmap-duck.jpg"  width="500"/></p>
 //!
 //! ## How we trace rays?
-//! Since we are going to project from 3 to 2 dimension we need to pick a viewing angle (projection plane). 
+//! Since we are going to project from 3 to 2 dimension we need to pick a viewing angle (projection plane).
 //! This plane is going to We going to call this viewing angle a camera.
-//! 
+//!
 //! [Ray-Sphere intersection](struct.Sphere.html#method.ray_intersect)
 //!
 //!
@@ -34,7 +34,7 @@ mod voxel;
 
 extern crate image;
 
-use std::f32::consts::FRAC_2_PI;
+use std::{f32::consts::FRAC_2_PI, ops::Mul};
 use voxel::Vox;
 /// A sphere is a 3-D ball, it has a center point and a radius.
 struct Sphere {
@@ -42,11 +42,19 @@ struct Sphere {
     radius: f32,
     material: Material,
 }
-
+/// Material represents the color and light reflecting properties. (Open the struct page to see images)
+///
+///This is something completely new to me. The wikipedia article is interesting [Phong Reflection Model](https://en.wikipedia.org/wiki/Phong_reflection_model).
+///Particularly this image <p>![](https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Blinn_Vectors.svg/330px-Blinn_Vectors.svg.png)</p>
+///Another image that provides good explanation about diffused and specular reflection is this: <p> ![](https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Lambert2.gif/330px-Lambert2.gif)</p>
 #[derive(Clone, Copy)]
 struct Material {
     color: (f32, f32, f32),
     pixel: image::Rgb<u8>,
+    /// How strong this material reflects direct light
+    specular_exponent: f32,
+    /// Whiteness of an object
+    albedo: (f32, f32),
 }
 
 impl Material {
@@ -55,25 +63,29 @@ impl Material {
         image::Rgb([(255. * r) as u8, (255. * g) as u8, (255. * b) as u8])
     }
 
-    fn new(color: (f32, f32, f32)) -> Self {
+    fn new(color: (f32, f32, f32), albedo: (f32, f32), specular_exponent: f32) -> Self {
         let pixel = Self::_to_pixel(color);
-        Self { color, pixel }
+        Self { color, pixel, albedo, specular_exponent}
     }
 
-    fn adjust_light(&mut self, intensity: f32) {
+    fn adjust_light(&mut self, diffuse: f32, specular: f32) {
         let (r, g, b) = self.color;
+        let diff_albedo = diffuse*self.albedo.0;
+        let white_shift = specular*self.albedo.1;
+
         self.color = (
-            (r * intensity).max(0.).min(1.),
-            (g * intensity).max(0.).min(1.),
-            (b * intensity).max(0.).min(1.),
+            (r * diff_albedo+white_shift).max(0.).min(1.),
+            (g * diff_albedo+white_shift).max(0.).min(1.),
+            (b * diff_albedo+white_shift).max(0.).min(1.),
         );
+
         self.pixel = Self::_to_pixel(self.color);
     }
 }
 
 impl Default for Material {
     fn default() -> Self {
-        Self::new((0.2, 0.7, 0.8))
+        Self::new((0.2, 0.7, 0.8), (1.0, 0.0), 1.0)
     }
 }
 
@@ -86,12 +98,15 @@ struct LightSource {
 struct LightRay {
     origin: Vox,
     /// Unit norm direction vector
-    direction: Vox
+    direction: Vox,
 }
 
 impl LightRay {
-    fn new(dir: Vox) -> Self{
-        Self{origin: Vox::orig(), direction: dir.normalized()}
+    fn new(dir: Vox) -> Self {
+        Self {
+            origin: Vox::orig(),
+            direction: dir.normalized(),
+        }
     }
 
     fn set_origin(&mut self, origin: Vox) {
@@ -99,7 +114,7 @@ impl LightRay {
     }
 
     fn walk_dir(&self, distance: f32) -> Vox {
-        self.origin + self.direction.walk_dir(distance)
+        self.origin + self.direction.mult(distance)
     }
 }
 
@@ -110,7 +125,7 @@ enum HitPoint {
 }
 
 impl Sphere {
-    /// We need to determin if a ray of light hits a specific object or not. This function conatins the logic of how to determine that.
+    /// We need to determine if a ray of light hits a specific object or not. This function contains the logic of how to determine that.
     /// In case of a sphere it's pretty easy, we need to project the center of the sphere on the ray of light and see if the projection is inside the sphere
     fn ray_intersect(&self, ray: &LightRay) -> HitPoint {
         let v = self.center - ray.origin;
@@ -144,8 +159,9 @@ impl Sphere {
     }
 }
 
+
 /// This is the light ray simulation. We go over the objects in the scene and check if our light ray intersect with them.
-/// If there is an intersection, we get the point of intersection and assign the color of the object the ray intersect with. 
+/// If there is an intersection, we get the point of intersection and assign the color of the object the ray intersect with.
 /// Next we use the point of intersection and the lighting source in the scene to determine how lighting should affect the color at intersection point.
 fn cast_ray(ray: LightRay, scene: &[Sphere], lights: &[LightSource]) -> Material {
     let mut dist = f32::MAX;
@@ -167,22 +183,39 @@ fn cast_ray(ray: LightRay, scene: &[Sphere], lights: &[LightSource]) -> Material
     }
 
     if let Some(p) = hit_point {
-        let mut light_intensity = 0f32;
+        // Light intensity
+        let mut diffuse = 0f32;
+        let mut specular = 0f32;
+
         for cur in lights.iter() {
             let ldir = (cur.position - p).normalized();
-            // dbg!(ldir.dot(&normal), normal.dot(&ldir), normal.l2(), ldir.l2());
-            let psi_ = ldir.dot(&normal).max(0.);
-            light_intensity += cur.intensity * psi_;
+
+            let diff_coef = ldir.dot(&normal).max(0.);
+            
+
+            let a = ldir.reflect(normal).dot(&ray.direction);
+            dbg!(a, ldir.l2());
+            let spec_coef = ldir
+                .reflect(normal)
+                .dot(&ray.direction)
+                .max(0.)
+                .powf(material.specular_exponent);
+
+            
+            diffuse += cur.intensity * diff_coef;
+            specular += cur.intensity*spec_coef;
+            // dbg!(diff_coef, spec_coef, material.specular_exponent);
         }
-        material.adjust_light(light_intensity);
+        
+        material.adjust_light(diffuse, specular);
     }
 
     material
 }
 
-/// This function builds an image by simulatin light rays.
+/// This function builds an image by simulating light rays.
 /// Each pixel of an image is translated into a light ray. For each pixel, the light ray simulation returns the color the pixel should get.
-fn render(spehres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
+fn render(spheres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
     let imgx = 1024;
     let imgy = 768;
     let mut imgbuf = image::ImageBuffer::new(imgx, imgy);
@@ -204,15 +237,15 @@ fn render(spehres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
 
         let ray = LightRay::new(dir);
 
-        *pixel = cast_ray(ray, &spehres, &lights).pixel;
+        *pixel = cast_ray(ray, &spheres, &lights).pixel;
     }
 
     imgbuf.save(output);
 }
 
 fn main() {
-    let ivory = Material::new((0.4, 0.4, 0.3));
-    let red_rubber = Material::new((0.3, 0.1, 0.1));
+    let ivory = Material::new((0.4, 0.4, 0.3), (0.6, 0.3), 50.);
+    let red_rubber = Material::new((0.3, 0.1, 0.1),(0.9, 0.1), 10.);
 
     let s = Sphere {
         center: Vox::new((-3., 0., -16.)),
@@ -243,5 +276,5 @@ fn main() {
         intensity: 1.5,
     };
 
-    render(vec![s, s2, s3, s4], vec![light], "test.png");
+    render(vec![s, s2, s3, s4], vec![light], "specular.png");
 }

@@ -248,9 +248,9 @@ fn render(spheres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
 }
 
 fn main() {
-    let ivory = Material::new((0.4, 0.4, 0.3), (0.6, 0.4), 50.);
+    let ivory = Material::new((0.4, 0.4, 0.3), (0.6, 0.3), 50.);
     // let ivory = Material::new((0.4, 0.4, 0.3), (1., 0.3), 50.);
-    let red_rubber = Material::new((0.3, 0.1, 0.1),(0.9, 0.2), 10.);
+    let red_rubber = Material::new((0.3, 0.1, 0.1),(0.9, 0.1), 10.);
     // let red_rubber = Material::new((0.3, 0.1, 0.1),(1., 0.1), 10.);
 
     let s = Sphere {
@@ -282,5 +282,5 @@ fn main() {
         intensity: 1.5,
     };
 
-    render(vec![s, s2, s3, s4], vec![light], "current.png");
+    render(vec![s, s2, s3, s4], vec![light], "static/assets/current.png");
 }

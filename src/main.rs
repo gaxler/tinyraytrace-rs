@@ -16,8 +16,10 @@
 //! Also, those properties interact with each other (light sources act in tandem on an object, light reflects from one object to another etc..).
 //! We do light ray simulation is by modeling how a ray of light behaves in the world. Direction at which it meets an object, how it is reflect from the object, how it eventually hits our eye etc...
 //!
-//! To see how complex this can get, let's take a look at our goal with this project. We want to generate the following image:
-//! <p style="text-align:center;"><img src="https://raw.githubusercontent.com/ssloy/tinyraytracer/homework_assignment/out-envmap-duck.jpg"  width="500"/></p>
+//! To see how complex this can get, let's take a look at our goal with this project vs. where we are now:
+//! <p style="text-align:center;"><img src="https://raw.githubusercontent.com/ssloy/tinyraytracer/homework_assignment/out-envmap-duck.jpg"  width="500"/>
+//! <img src="https://github.com/gaxler/tinyraytrace-rs/blob/017cb7f944376c100763cd899783b3792fbc2b49/static/assets/current.png"  width="500"/>
+//!</p>
 //!
 //! ## How we trace rays?
 //! Since we are going to project from 3 to 2 dimension we need to pick a viewing angle (projection plane).
@@ -34,7 +36,7 @@ mod voxel;
 
 extern crate image;
 
-use std::{f32::consts::FRAC_2_PI, ops::Mul};
+use std::f32::consts::FRAC_2_PI;
 use voxel::Vox;
 /// A sphere is a 3-D ball, it has a center point and a radius.
 struct Sphere {

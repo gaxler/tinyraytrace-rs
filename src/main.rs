@@ -17,8 +17,8 @@
 //! We do light ray simulation is by modeling how a ray of light behaves in the world. Direction at which it meets an object, how it is reflect from the object, how it eventually hits our eye etc...
 //!
 //! To see how complex this can get, let's take a look at our goal with this project vs. where we are now:
-//! <p style="text-align:center;"><img src="https://raw.githubusercontent.com/ssloy/tinyraytracer/homework_assignment/out-envmap-duck.jpg"  width="500"/>
-//! <img src="https://github.com/gaxler/tinyraytrace-rs/blob/017cb7f944376c100763cd899783b3792fbc2b49/static/assets/current.png"  width="500"/>
+//! <p style="text-align:center;"><img src="https://raw.githubusercontent.com/ssloy/tinyraytracer/homework_assignment/out-envmap-duck.jpg"  width="400"/>
+//! <img src="https://raw.githubusercontent.com/gaxler/tinyraytrace-rs/main/static/assets/current.png"  width="400"/>
 //!</p>
 //!
 //! ## How we trace rays?

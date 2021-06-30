@@ -73,11 +73,14 @@ impl Material {
         let diff_albedo = diffuse*self.albedo.0;
         let white_shift = specular*self.albedo.1;
 
-        self.color = (
+        
+        self.color =
+        (
             (r * diff_albedo+white_shift).max(0.).min(1.),
             (g * diff_albedo+white_shift).max(0.).min(1.),
             (b * diff_albedo+white_shift).max(0.).min(1.),
         );
+
 
         self.pixel = Self::_to_pixel(self.color);
     }
@@ -194,7 +197,6 @@ fn cast_ray(ray: LightRay, scene: &[Sphere], lights: &[LightSource]) -> Material
             
 
             let a = ldir.reflect(normal).dot(&ray.direction);
-            dbg!(a, ldir.l2());
             let spec_coef = ldir
                 .reflect(normal)
                 .dot(&ray.direction)
@@ -244,8 +246,10 @@ fn render(spheres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
 }
 
 fn main() {
-    let ivory = Material::new((0.4, 0.4, 0.3), (0.6, 0.3), 50.);
-    let red_rubber = Material::new((0.3, 0.1, 0.1),(0.9, 0.1), 10.);
+    let ivory = Material::new((0.4, 0.4, 0.3), (0.6, 0.4), 50.);
+    // let ivory = Material::new((0.4, 0.4, 0.3), (1., 0.3), 50.);
+    let red_rubber = Material::new((0.3, 0.1, 0.1),(0.9, 0.2), 10.);
+    // let red_rubber = Material::new((0.3, 0.1, 0.1),(1., 0.1), 10.);
 
     let s = Sphere {
         center: Vox::new((-3., 0., -16.)),
@@ -276,5 +280,5 @@ fn main() {
         intensity: 1.5,
     };
 
-    render(vec![s, s2, s3, s4], vec![light], "specular.png");
+    render(vec![s, s2, s3, s4], vec![light], "current.png");
 }

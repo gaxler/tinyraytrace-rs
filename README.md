@@ -9,8 +9,8 @@ Learning about Ray Tracing by build a basic Ray Tracer. Following [Understandabl
 ## Where we at?
 This is our current progress vs. where we are heading:
 <p style="text-align:center;">
-<img src="static/assets/current.png"  width="500"/>
-<img src="https://raw.githubusercontent.com/ssloy/tinyraytracer/homework_assignment/out-envmap-duck.jpg"  width="500"/>
+<img src="static/assets/current.png"  width="400"/>
+<img src="https://raw.githubusercontent.com/ssloy/tinyraytracer/homework_assignment/out-envmap-duck.jpg"  width="400"/>
 </p>
 
 

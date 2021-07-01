@@ -3,7 +3,7 @@
  [![Read the Docs](https://readthedocs.org/projects/yt2mp3/badge/?version=latest)](https://gaxler.github.io/tinyraytrace-rs/tinyraytracer/)
 
 ## What is it?
-Learning about Ray Tracing by build a basic Ray Tracer. Following [Understandable RayTracing in 256 lines of bare C++](https://github.com/ssloy/tinyraytracer/wiki) but doing it in Rust.
+Learning about Ray Tracing by building a basic Ray Tracer. Following [Understandable RayTracing in 256 lines of bare C++](https://github.com/ssloy/tinyraytracer/wiki) but doing it in Rust.
 
 
 ## Where we at?

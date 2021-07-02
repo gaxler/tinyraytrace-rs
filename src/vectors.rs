@@ -38,7 +38,7 @@ impl Vox {
     /// This gives us the [Dot Product](https://mathworld.wolfram.com/DotProduct.html) of 2 vectors.
     /// This is a very useful quantity for projection of vectors.
     /// Key property of the dot-product is this: ![](https://mathworld.wolfram.com/images/equations/DotProduct/NumberedEquation1.gif)
-    /// What this means is that the dot-product of two vectors is a product of their lengths and the cosine of the angle between them. [Vector Projection](https://en.wikipedia.org/wiki/Vector_projection) 
+    /// What this means is that the dot-product of two vectors is a product of their lengths and the cosine of the angle between them. [Vector Projection](https://en.wikipedia.org/wiki/Vector_projection)
     ///
     /// ![](https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Projection_and_rejection.png/300px-Projection_and_rejection.png)
     pub fn dot(&self, other: &Self) -> f32 {
@@ -68,7 +68,6 @@ impl Vox {
     pub fn reflect(&self, normal: Vox) -> Self {
         let proj_to_normal = self.dot(&normal);
         *self - normal.mult(proj_to_normal).mult(2.)
-        
     }
 }
 

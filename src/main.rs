@@ -67,22 +67,24 @@ impl Material {
 
     fn new(color: (f32, f32, f32), albedo: (f32, f32), specular_exponent: f32) -> Self {
         let pixel = Self::_to_pixel(color);
-        Self { color, pixel, albedo, specular_exponent}
+        Self {
+            color,
+            pixel,
+            albedo,
+            specular_exponent,
+        }
     }
 
     fn adjust_light(&mut self, diffuse: f32, specular: f32) {
         let (r, g, b) = self.color;
-        let diff_albedo = diffuse*self.albedo.0;
-        let white_shift = specular*self.albedo.1;
+        let diff_albedo = diffuse * self.albedo.0;
+        let white_shift = specular * self.albedo.1;
 
-        
-        self.color =
-        (
-            (r * diff_albedo+white_shift).max(0.).min(1.),
-            (g * diff_albedo+white_shift).max(0.).min(1.),
-            (b * diff_albedo+white_shift).max(0.).min(1.),
+        self.color = (
+            (r * diff_albedo + white_shift).max(0.).min(1.),
+            (g * diff_albedo + white_shift).max(0.).min(1.),
+            (b * diff_albedo + white_shift).max(0.).min(1.),
         );
-
 
         self.pixel = Self::_to_pixel(self.color);
     }
@@ -114,9 +116,6 @@ impl LightRay {
         }
     }
 
-    fn set_origin(&mut self, origin: Vox) {
-        self.origin = origin;
-    }
 
     fn walk_dir(&self, distance: f32) -> Vox {
         self.origin + self.direction.mult(distance)
@@ -161,16 +160,20 @@ impl Sphere {
             (_, o_i2) if o_i2 > 0. => HitPoint::Point(ray.walk_dir(o_i2)),
             _ => HitPoint::None,
         }
-
-
     }
 }
 
+struct IntersectionState {
+    point: Vox,
+    normal: Vox,
+    material: Material,
+    ray: LightRay,
+}
 
 /// This is the light ray simulation. We go over the objects in the scene and check if our light ray intersect with them.
 /// If there is an intersection, we get the point of intersection and assign the color of the object the ray intersect with.
 /// Next we use the point of intersection and the lighting source in the scene to determine how lighting should affect the color at intersection point.
-fn cast_ray(ray: LightRay, scene: &[Sphere], lights: &[LightSource]) -> Material {
+fn cast_ray(ray: LightRay, scene: &[Sphere]) -> Option<IntersectionState> {
     let mut dist = f32::MAX;
     let mut hit_point: Option<Vox> = None;
     let mut normal = Vox::orig();
@@ -189,35 +192,46 @@ fn cast_ray(ray: LightRay, scene: &[Sphere], lights: &[LightSource]) -> Material
         }
     }
 
-    if let Some(p) = hit_point {
-        // Light intensity
-        let mut diffuse = 0f32;
-        let mut specular = 0f32;
+    // The question mark checks if hit_point is None or Some if it is None then function returns None
+    hit_point?;
 
-        for cur in lights.iter() {
-            let ldir = (cur.position - p).normalized();
+    Some(IntersectionState {
+        point: hit_point.unwrap(),
+        normal,
+        material,
+        ray,
+    })
+}
 
-            let diff_coef = ldir.dot(&normal).max(0.);
-            
+fn light_intersect(intersection: IntersectionState, lights: &[LightSource]) -> Material {
+    let (normal, p, ray) = (
+        intersection.normal,
+        intersection.point,
+        intersection.ray,
+    );
 
-            let a = ldir.reflect(normal).dot(&ray.direction);
-            let spec_coef = ldir
-                .reflect(normal)
-                .dot(&ray.direction)
-                .max(0.)
-                .powf(material.specular_exponent);
+    let mut material = intersection.material;
 
-            
-            diffuse += cur.intensity * diff_coef;
-            specular += cur.intensity*spec_coef;
-            // dbg!(diff_coef, spec_coef, material.specular_exponent);
-        }
-        
-        material.adjust_light(diffuse, specular);
+    let mut diffuse = 0f32;
+    let mut specular = 0f32;
+    for cur in lights.iter() {
+        let ldir = (cur.position - p).normalized();
+        let diff_coef = ldir.dot(&normal).max(0.);
+
+        let spec_coef = ldir
+            .reflect(normal)
+            .dot(&ray.direction)
+            .max(0.)
+            .powf(material.specular_exponent);
+
+        diffuse += cur.intensity * diff_coef;
+        specular += cur.intensity * spec_coef;
     }
 
+    material.adjust_light(diffuse, specular);
     material
 }
+
 
 /// This function builds an image by simulating light rays.
 /// Each pixel of an image is translated into a light ray. For each pixel, the light ray simulation returns the color the pixel should get.
@@ -243,16 +257,23 @@ fn render(spheres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
 
         let ray = LightRay::new(dir);
 
-        *pixel = cast_ray(ray, &spheres, &lights).pixel;
+        let pix_value = match cast_ray(ray, &spheres) {
+            None => Material::default().pixel,
+            Some(intersection) => light_intersect(intersection, &lights).pixel,
+        };
+
+        *pixel = pix_value;
+
+        // *pixel = cast_ray(ray, &spheres, &lights).pixel;
     }
 
-    imgbuf.save(output);
+    imgbuf.save(output).expect("Failed saving canvas");
 }
 
 fn main() {
     let ivory = Material::new((0.4, 0.4, 0.3), (0.6, 0.3), 50.);
     // let ivory = Material::new((0.4, 0.4, 0.3), (1., 0.3), 50.);
-    let red_rubber = Material::new((0.3, 0.1, 0.1),(0.9, 0.1), 10.);
+    let red_rubber = Material::new((0.3, 0.1, 0.1), (0.9, 0.1), 10.);
     // let red_rubber = Material::new((0.3, 0.1, 0.1),(1., 0.1), 10.);
 
     let s = Sphere {
@@ -284,5 +305,9 @@ fn main() {
         intensity: 1.5,
     };
 
-    render(vec![s, s2, s3, s4], vec![light], "static/assets/current.png");
+    render(
+        vec![s, s2, s3, s4],
+        vec![light],
+        "static/assets/current.png",
+    );
 }

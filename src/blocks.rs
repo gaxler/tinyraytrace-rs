@@ -14,7 +14,6 @@ pub enum HitPoint {
     None,
 }
 
-
 impl Sphere {
     /// We need to determine if a ray of light hits a specific object or not. This function contains the logic of how to determine that.
     /// In case of a sphere it's pretty easy, we need to project the center of the sphere on the ray of light and see if the projection is inside the sphere
@@ -56,7 +55,6 @@ pub struct LightSource {
     pub intensity: f32,
 }
 
-
 pub struct LightRay {
     pub origin: Vox,
     /// Unit norm direction vector
@@ -80,7 +78,6 @@ impl LightRay {
         self.origin + self.direction.mult(distance)
     }
 }
-
 
 /// Material represents the color and light reflecting properties. (Open the struct page to see images)
 ///

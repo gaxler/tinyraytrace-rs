@@ -32,12 +32,12 @@
 //! ### What if we have millions of objects in a scene?
 //! I guess you can avoid checking most of the objects and limit your intersection checks based on light rays' direction. How is it done in actual ray tracers?
 
-mod voxel;
+mod vectors;
 
 extern crate image;
 
 use std::f32::consts::FRAC_2_PI;
-use voxel::Vox;
+use vectors::Vox;
 /// A sphere is a 3-D ball, it has a center point and a radius.
 struct Sphere {
     center: Vox,
@@ -161,6 +161,8 @@ impl Sphere {
             (_, o_i2) if o_i2 > 0. => HitPoint::Point(ray.walk_dir(o_i2)),
             _ => HitPoint::None,
         }
+
+
     }
 }
 

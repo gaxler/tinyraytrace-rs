@@ -1,4 +1,4 @@
-//! Voxels are 3-D vectors. This is a helper module to 
+//! We operate in a 3-D coordinate space. This is a helper struct for vector calculations.
 use std::ops::{Add, Sub};
 
 /// 3-D vector, this struct includes functions for conveniently perform

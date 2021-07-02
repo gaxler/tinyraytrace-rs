@@ -116,6 +116,10 @@ impl LightRay {
         }
     }
 
+    fn set_origin(mut self, origin: Vox) -> Self {
+        self.origin = origin;
+        self
+    }
 
     fn walk_dir(&self, distance: f32) -> Vox {
         self.origin + self.direction.mult(distance)
@@ -164,7 +168,7 @@ impl Sphere {
 }
 
 struct IntersectionState {
-    point: Vox,
+    hit_point: Vox,
     normal: Vox,
     material: Material,
     ray: LightRay,
@@ -192,21 +196,43 @@ fn cast_ray(ray: LightRay, scene: &[Sphere]) -> Option<IntersectionState> {
         }
     }
 
-    // The question mark checks if hit_point is None or Some if it is None then function returns None
-    hit_point?;
-
+    // The question mark checks if hit_point is None or Some if it is None then function returns None otherwise it unpacks the Some
     Some(IntersectionState {
-        point: hit_point.unwrap(),
+        hit_point: hit_point?,
         normal,
         material,
         ray,
     })
 }
 
-fn light_intersect(intersection: IntersectionState, lights: &[LightSource]) -> Material {
+/// Shadow is like a negative light, we "cast a ray of shadow" for a certain hit point and light source.
+/// If the shadow ray hits the object, we know that the object is in shadow and we can't see the light source. ([Github Copilot](https://copilot.github.com/) wrote this line for me, how cool is that?)
+fn light_is_shadowed(hit_point: Vox, hit_normal: Vox, light_position: Vox, scene: &[Sphere]) -> bool {
+    
+    let ldir = (light_position - hit_point).normalized();
+    let ldist = (light_position - hit_point).l2();
+
+    let shadow_shift = 0.001f32.copysign(ldir.dot(&hit_normal));
+    let shadow_orig = hit_point + hit_normal.mult(shadow_shift);
+
+    
+    let shadow_ray = LightRay::new(ldir).set_origin(shadow_orig);
+
+    if let Some(shadow) = cast_ray(shadow_ray, scene) {
+        if (shadow.hit_point - shadow_orig).l2() < ldist {return true;} 
+    }
+    false
+
+}
+
+fn light_intersect(
+    intersection: IntersectionState,
+    scene: &[Sphere],
+    lights: &[LightSource],
+) -> Material {
     let (normal, p, ray) = (
         intersection.normal,
-        intersection.point,
+        intersection.hit_point,
         intersection.ray,
     );
 
@@ -218,6 +244,10 @@ fn light_intersect(intersection: IntersectionState, lights: &[LightSource]) -> M
         let ldir = (cur.position - p).normalized();
         let diff_coef = ldir.dot(&normal).max(0.);
 
+        if light_is_shadowed(p, normal, cur.position, scene) {
+            continue;
+        }
+
         let spec_coef = ldir
             .reflect(normal)
             .dot(&ray.direction)
@@ -226,12 +256,13 @@ fn light_intersect(intersection: IntersectionState, lights: &[LightSource]) -> M
 
         diffuse += cur.intensity * diff_coef;
         specular += cur.intensity * spec_coef;
+            
+        
     }
 
     material.adjust_light(diffuse, specular);
     material
 }
-
 
 /// This function builds an image by simulating light rays.
 /// Each pixel of an image is translated into a light ray. For each pixel, the light ray simulation returns the color the pixel should get.
@@ -259,7 +290,7 @@ fn render(spheres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
 
         let pix_value = match cast_ray(ray, &spheres) {
             None => Material::default().pixel,
-            Some(intersection) => light_intersect(intersection, &lights).pixel,
+            Some(intersection) => light_intersect(intersection, &spheres, &lights).pixel,
         };
 
         *pixel = pix_value;
@@ -308,6 +339,7 @@ fn main() {
     render(
         vec![s, s2, s3, s4],
         vec![light],
-        "static/assets/current.png",
+        // "static/assets/current.png",
+        "shadow.png",
     );
 }

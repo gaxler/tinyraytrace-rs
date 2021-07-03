@@ -2,6 +2,7 @@
 
 use crate::vectors::Vox;
 /// A sphere is a 3-D ball, it has a center point and a radius.
+#[derive(Debug, Clone, Copy)]
 pub struct Sphere {
     pub center: Vox,
     pub radius: f32,
@@ -138,7 +139,7 @@ impl Material {
         // let (r1, g1, b1) = dbg!(self.color);
         let (r1, g1, b1) = self.color;
         let (r2, g2, b2) = other.color;
-        
+
         let mixed_color = (
             (r1 + self.reflection_mixing_coef * r2).max(0.).min(1.),
             (g1 + self.reflection_mixing_coef * g2).max(0.).min(1.),

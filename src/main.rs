@@ -43,7 +43,7 @@ use vectors::Vox;
 
 const DEFAULT_JITTER: f32 = 0.001;
 const MAX_RAY_BOUNCES: u32 = 4;
-const  CANVAS_WIDTH_HEIGHT: (u32, u32) = (1024, 768);
+const CANVAS_WIDTH_HEIGHT: (u32, u32) = (1024, 768);
 
 struct IntersectionState {
     hit_point: Vox,
@@ -82,8 +82,6 @@ fn cast_ray(ray: LightRay, scene: &[Sphere]) -> Option<IntersectionState> {
         ray,
     })
 }
-
-
 
 /// This function jitters a point along a noraml vector. Why do we need that? [@ssloy explains](https://github.com/ssloy/tinyraytracer/wiki/Part-1:-understandable-raytracing#step-6-shadows):
 ///"Why is that? It's just that our point lies on the surface of the object, and (except for the question of numerical errors) any ray from this point will intersect the object itself."
@@ -194,7 +192,6 @@ fn reflective_ray_cast(
 /// This function builds an image by simulating light rays.
 /// Each pixel of an image is translated into a light ray. For each pixel, the light ray simulation returns the color the pixel should get.
 fn render(spheres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
-
     let (imgx, imgy) = CANVAS_WIDTH_HEIGHT;
     let mut imgbuf = image::ImageBuffer::new(imgx, imgy);
 
@@ -222,42 +219,72 @@ fn render(spheres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
     imgbuf.save(output).expect("Failed saving canvas");
 }
 
+struct SphereBuilder {
+    spheres: Vec<Sphere>,
+}
+
+impl SphereBuilder {
+    fn new() -> Self {
+        Self { spheres: vec![] }
+    }
+
+    fn add(mut self, center: (f32, f32, f32), radius: f32, material: Material) -> Self {
+        self.spheres.push(Sphere {
+            center: Vox::new(center),
+            radius,
+            material,
+        });
+        self
+    }
+
+    fn build(self) -> Vec<Sphere> {
+        self.spheres
+    }
+}
+
+struct LightBuilder {
+    lights: Vec<LightSource>,
+}
+
+impl LightBuilder {
+    fn new() -> Self {
+        Self { lights: vec![] }
+    }
+
+    fn add(mut self, center: (f32, f32, f32), intensity: f32) -> Self {
+        self.lights.push(LightSource {
+            position: Vox::new(center),
+            intensity,
+        });
+        self
+    }
+
+    fn build(self) -> Vec<LightSource> {
+        self.lights
+    }
+}
+
 fn main() {
     let ivory = Material::new((0.4, 0.4, 0.3), (0.6, 0.3), 50., 0.3);
     let red_rubber = Material::new((0.3, 0.1, 0.1), (0.9, 0.1), 10., 0.0);
+    let mirror = Material::new((1., 1., 1.), (0., 10.), 1425., 0.8);
 
-    let s = Sphere {
-        center: Vox::new((-3., 0., -16.)),
-        radius: 2.0,
-        material: ivory,
-    };
+    let spheres = SphereBuilder::new()
+        .add((-3., -0., -16.), 2.0, ivory)
+        .add((-1., -1.5, -12.), 2.0, mirror)
+        .add((1.5, -0.5, -18.), 3.0, red_rubber)
+        .add((7., 5., -18.), 4., mirror)
+        .build();
 
-    let s2 = Sphere {
-        center: Vox::new((-1., -1.5, -12.)),
-        radius: 2.0,
-        material: red_rubber,
-    };
-
-    let s3 = Sphere {
-        center: Vox::new((1.5, -0.5, -18.)),
-        radius: 3.0,
-        material: red_rubber,
-    };
-
-    let s4 = Sphere {
-        center: Vox::new((7., 5., -18.)),
-        radius: 4.0,
-        material: ivory,
-    };
-
-    let light = LightSource {
-        position: Vox::new((-20., 20., 20.)),
-        intensity: 1.5,
-    };
+    let lights = LightBuilder::new()
+        .add((-20., 20., 20.), 1.5)
+        .add((30., 50., -25.), 1.3)
+        .add((30., 20., 30.), 1.3)
+        .build();
 
     render(
-        vec![s, s2, s3, s4],
-        vec![light],
+        spheres,
+        lights,
         "static/assets/current.png",
     );
 }

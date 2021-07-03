@@ -55,6 +55,7 @@ pub struct LightSource {
     pub intensity: f32,
 }
 
+#[derive(Clone, Copy)]
 pub struct LightRay {
     pub origin: Vox,
     /// Unit norm direction vector
@@ -84,14 +85,15 @@ impl LightRay {
 ///This is something completely new to me. The wikipedia article is interesting [Phong Reflection Model](https://en.wikipedia.org/wiki/Phong_reflection_model).
 ///Particularly this image <p>![](https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Blinn_Vectors.svg/330px-Blinn_Vectors.svg.png)</p>
 ///Another image that provides good explanation about diffused and specular reflection is this: <p> ![](https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Lambert2.gif/330px-Lambert2.gif)</p>
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Material {
     color: (f32, f32, f32),
     pub pixel: image::Rgb<u8>,
     /// How strong this material reflects direct light
     pub specular_exponent: f32,
     /// Whiteness of an object
-    pub albedo: (f32, f32),
+    albedo: (f32, f32),
+    reflection_mixing_coef: f32,
 }
 
 impl Material {
@@ -100,17 +102,23 @@ impl Material {
         image::Rgb([(255. * r) as u8, (255. * g) as u8, (255. * b) as u8])
     }
 
-    pub fn new(color: (f32, f32, f32), albedo: (f32, f32), specular_exponent: f32) -> Self {
+    pub fn new(
+        color: (f32, f32, f32),
+        albedo: (f32, f32),
+        specular_exponent: f32,
+        reflection_mixing_coef: f32,
+    ) -> Self {
         let pixel = Self::_to_pixel(color);
         Self {
             color,
             pixel,
             albedo,
             specular_exponent,
+            reflection_mixing_coef,
         }
     }
 
-    pub fn adjust_light(&mut self, diffuse: f32, specular: f32) {
+    pub fn adjust_light(mut self, diffuse: f32, specular: f32) -> Self {
         let (r, g, b) = self.color;
         let diff_albedo = diffuse * self.albedo.0;
         let white_shift = specular * self.albedo.1;
@@ -122,11 +130,29 @@ impl Material {
         );
 
         self.pixel = Self::_to_pixel(self.color);
+        self
+    }
+
+    /// Mix two materials color together, by the amount of reflectiveness of the first material.
+    pub fn mix_reflection(mut self, other: Material) -> Self {
+        // let (r1, g1, b1) = dbg!(self.color);
+        let (r1, g1, b1) = self.color;
+        let (r2, g2, b2) = other.color;
+        
+        let mixed_color = (
+            (r1 + self.reflection_mixing_coef * r2).max(0.).min(1.),
+            (g1 + self.reflection_mixing_coef * g2).max(0.).min(1.),
+            (b1 + self.reflection_mixing_coef * b2).max(0.).min(1.),
+        );
+
+        self.color = mixed_color;
+        self.pixel = Self::_to_pixel(self.color);
+        self
     }
 }
 
 impl Default for Material {
     fn default() -> Self {
-        Self::new((0.2, 0.7, 0.8), (1.0, 0.0), 1.0)
+        Self::new((0.2, 0.7, 0.8), (1.0, 0.0), 1.0, 0.0)
     }
 }

@@ -41,6 +41,10 @@ use blocks::*;
 use std::f32::consts::FRAC_2_PI;
 use vectors::Vox;
 
+const DEFAULT_JITTER: f32 = 0.001;
+const MAX_RAY_BOUNCES: u32 = 4;
+const  CANVAS_WIDTH_HEIGHT: (u32, u32) = (1024, 768);
+
 struct IntersectionState {
     hit_point: Vox,
     normal: Vox,
@@ -79,6 +83,15 @@ fn cast_ray(ray: LightRay, scene: &[Sphere]) -> Option<IntersectionState> {
     })
 }
 
+
+
+/// This function jitters a point along a noraml vector. Why do we need that? [@ssloy explains](https://github.com/ssloy/tinyraytracer/wiki/Part-1:-understandable-raytracing#step-6-shadows):
+///"Why is that? It's just that our point lies on the surface of the object, and (except for the question of numerical errors) any ray from this point will intersect the object itself."
+fn _jitter_along_normal(pt: Vox, direction: Vox, normal: Vox, jitter: f32) -> Vox {
+    let _shift = jitter.copysign(direction.dot(&normal));
+    pt + normal.mult(_shift)
+}
+
 /// Shadow is like a negative light, we "cast a ray of shadow" for a certain hit point and light source.
 /// If the shadow ray hits the object, we know that the object is in shadow and we can't see the light source. ([Github Copilot](https://copilot.github.com/) wrote this line for me, how cool is that?)
 fn light_is_shadowed(
@@ -90,9 +103,7 @@ fn light_is_shadowed(
     let ldir = (light_position - hit_point).normalized();
     let ldist = (light_position - hit_point).l2();
 
-    let shadow_shift = 0.001f32.copysign(ldir.dot(&hit_normal));
-    let shadow_orig = hit_point + hit_normal.mult(shadow_shift);
-
+    let shadow_orig = _jitter_along_normal(hit_point, ldir, hit_normal, DEFAULT_JITTER);
     let shadow_ray = LightRay::new(ldir).set_origin(shadow_orig);
 
     if let Some(shadow) = cast_ray(shadow_ray, scene) {
@@ -103,21 +114,20 @@ fn light_is_shadowed(
     false
 }
 
-fn light_intersect(
-    intersection: IntersectionState,
+fn get_light_adjustments(
+    intersection: &IntersectionState,
     scene: &[Sphere],
     lights: &[LightSource],
-) -> Material {
+) -> (f32, f32) {
     let (normal, p, ray) = (
         intersection.normal,
         intersection.hit_point,
         intersection.ray,
     );
 
-    let mut material = intersection.material;
-
     let mut diffuse = 0f32;
     let mut specular = 0f32;
+
     for cur in lights.iter() {
         let ldir = (cur.position - p).normalized();
         let diff_coef = ldir.dot(&normal).max(0.);
@@ -130,21 +140,62 @@ fn light_intersect(
             .reflect(normal)
             .dot(&ray.direction)
             .max(0.)
-            .powf(material.specular_exponent);
+            .powf(intersection.material.specular_exponent);
 
         diffuse += cur.intensity * diff_coef;
         specular += cur.intensity * spec_coef;
     }
 
-    material.adjust_light(diffuse, specular);
-    material
+    (diffuse, specular)
+    // material.adjust_light(diffuse, specular)
+}
+
+/// Our ray of lights don't stay in the same spot. If the hit some reflective material, they bounce off it like a ball.
+/// The is a recursive process. We start with a ray of light and cast it through the scene. Every time a ray hits some object and bounces off, well that's a new ray.
+/// In real life ( I guess ) this process can go on until light losses energy, here we put a hard limit on the number of bounces.
+fn reflective_ray_cast(
+    ray: LightRay,
+    scene: &[Sphere],
+    lights: &[LightSource],
+    depth: u32,
+) -> Material {
+    match cast_ray(ray, scene) {
+        Some(intersection) if depth < MAX_RAY_BOUNCES => {
+            let ref_dir = intersection.ray.direction.reflect(intersection.normal);
+            let ref_orig = _jitter_along_normal(
+                intersection.hit_point,
+                ref_dir,
+                intersection.normal,
+                DEFAULT_JITTER,
+            );
+
+            let reflected_ = reflective_ray_cast(
+                LightRay::new(ref_dir).set_origin(ref_orig),
+                scene,
+                lights,
+                depth + 1,
+            );
+
+            let (diff, spec) = get_light_adjustments(&intersection, scene, lights);
+
+            intersection
+                .material
+                .adjust_light(diff, spec)
+                .mix_reflection(reflected_)
+        }
+        Some(intersection) => {
+            let (diff, spec) = get_light_adjustments(&intersection, scene, lights);
+            intersection.material.adjust_light(diff, spec)
+        }
+        _ => Material::default(),
+    }
 }
 
 /// This function builds an image by simulating light rays.
 /// Each pixel of an image is translated into a light ray. For each pixel, the light ray simulation returns the color the pixel should get.
 fn render(spheres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
-    let imgx = 1024;
-    let imgy = 768;
+
+    let (imgx, imgy) = CANVAS_WIDTH_HEIGHT;
     let mut imgbuf = image::ImageBuffer::new(imgx, imgy);
 
     let width = imgx as f32;
@@ -164,24 +215,16 @@ fn render(spheres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
 
         let ray = LightRay::new(dir);
 
-        let pix_value = match cast_ray(ray, &spheres) {
-            None => Material::default().pixel,
-            Some(intersection) => light_intersect(intersection, &spheres, &lights).pixel,
-        };
-
-        *pixel = pix_value;
-
-        // *pixel = cast_ray(ray, &spheres, &lights).pixel;
+        let reflected_material = reflective_ray_cast(ray, &spheres, &lights, 0);
+        *pixel = reflected_material.pixel;
     }
 
     imgbuf.save(output).expect("Failed saving canvas");
 }
 
 fn main() {
-    let ivory = Material::new((0.4, 0.4, 0.3), (0.6, 0.3), 50.);
-    // let ivory = Material::new((0.4, 0.4, 0.3), (1., 0.3), 50.);
-    let red_rubber = Material::new((0.3, 0.1, 0.1), (0.9, 0.1), 10.);
-    // let red_rubber = Material::new((0.3, 0.1, 0.1),(1., 0.1), 10.);
+    let ivory = Material::new((0.4, 0.4, 0.3), (0.6, 0.3), 50., 0.3);
+    let red_rubber = Material::new((0.3, 0.1, 0.1), (0.9, 0.1), 10., 0.0);
 
     let s = Sphere {
         center: Vox::new((-3., 0., -16.)),

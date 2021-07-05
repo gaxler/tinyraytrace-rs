@@ -18,24 +18,19 @@ pub enum HitPoint {
 impl Sphere {
     /// We need to determine if a ray of light hits a specific object or not. This function contains the logic of how to determine that.
     /// In case of a sphere it's pretty easy, we need to project the center of the sphere on the ray of light and see if the projection is inside the sphere
-    pub fn ray_intersect(&self, ray: &LightRay) -> HitPoint {
-        let v = self.center - ray.origin;
-        // let u = direction.normalized();
+    pub fn ray_intersect(&self, ray: &Ray) -> HitPoint {
+        let canonical_center = self.center - ray.origin;
+        let center_projected_ray = canonical_center.project_on(&ray.direction);
 
-        let dist_orig_proj = v.dot(&ray.direction);
-
-        if dist_orig_proj < 0. {
-            return HitPoint::None;
-        }
-        let proj = ray.walk_dir(dist_orig_proj);
-
-        let dist_ctr_proj = (self.center - proj).l2();
+        let dist_ctr_proj = (canonical_center - center_projected_ray).l2();
 
         if dist_ctr_proj > self.radius {
             return HitPoint::None;
         }
 
         let dist_proj_intersect1 = (self.radius.powf(2.0) - dist_ctr_proj.powf(2.)).sqrt();
+
+        let dist_orig_proj = canonical_center.dot(&ray.direction);
 
         match (
             dist_orig_proj - dist_proj_intersect1,
@@ -57,13 +52,13 @@ pub struct LightSource {
 }
 
 #[derive(Clone, Copy)]
-pub struct LightRay {
+pub struct Ray {
     pub origin: Vox,
     /// Unit norm direction vector
     pub direction: Vox,
 }
 
-impl LightRay {
+impl Ray {
     pub fn new(dir: Vox) -> Self {
         Self {
             origin: Vox::orig(),

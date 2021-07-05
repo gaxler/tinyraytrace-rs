@@ -45,9 +45,20 @@ impl Vox {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
+    /// Helper function that finds the projection of a vector to another vector.
+    /// I'm going to expand on this at some point. If you don't understand what's going on in this function I strongly recommend this series of videos
+    /// [3Brown1Blue's Essence of Linear Algebra](https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab)
+    pub fn project_on(&self, other: &Self) -> Self {
+        let v = other.normalized();
+        v.mult(self.dot(&v))
+    }
+
     /// Get 1-norm vector
     pub fn normalized(&self) -> Self {
         let d = self.l2();
+        if d == 0. {
+            return *self;
+        }
         Self {
             x: self.x / d,
             y: self.y / d,

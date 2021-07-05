@@ -3,6 +3,7 @@
 //! To make it more fun, I wanna try and write documentation that's going to cover some fundamental concepts as part of it.
 //!
 //! ( _This is a work in progress and I don't add documentation in a linear fashion, so it might be a bit early to try and read it_)
+//! If there is anything you want to fix/comment on/request etc. [Github Discussions](https://github.com/gaxler/tinyraytrace-rs/discussions/) is the best way to get in touch
 //!
 //! ## What is Ray Tracing?
 //! (_caveat: I'm learning about it pretty much for the first time as I implement this._)
@@ -31,6 +32,8 @@
 //! ## Question for future explorations
 //! ### What if we have millions of objects in a scene?
 //! I guess you can avoid checking most of the objects and limit your intersection checks based on light rays' direction. How is it done in actual ray tracers?
+//! ### How to make ray tracing differentiable?
+//! Quick search got me this [paper](https://people.csail.mit.edu/tzumao/diffrt/)
 
 mod blocks;
 mod vectors;
@@ -45,17 +48,41 @@ const DEFAULT_JITTER: f32 = 0.001;
 const MAX_RAY_BOUNCES: u32 = 4;
 const CANVAS_WIDTH_HEIGHT: (u32, u32) = (1024, 768);
 
-struct IntersectionState {
+struct CollisionState {
     hit_point: Vox,
     normal: Vox,
     material: Material,
-    ray: LightRay,
+    ray: Ray,
+}
+
+impl CollisionState {
+    fn _jitter(&self, dir: Vox, jitter: f32) -> Vox {
+        jitter_along_normal(self.hit_point, dir, self.normal, jitter)
+    }
+
+    fn reflected_ray(&self, jitter: f32) -> Ray {
+        let reflect_dir = self.ray.direction.reflect(self.normal);
+        let ref_orig = self._jitter(reflect_dir, jitter);
+
+        Ray::new(reflect_dir).set_origin(ref_orig)
+    }
+
+    fn refracted_ray(&self, jitter: f32) -> Ray {
+        let refract_dir = self
+            .ray
+            .direction
+            .refract(self.normal, self.material.refraction_index)
+            .normalized();
+        let ref_orig = self._jitter(refract_dir, jitter);
+
+        Ray::new(refract_dir).set_origin(ref_orig)
+    }
 }
 
 /// This is the light ray simulation. We go over the objects in the scene and check if our light ray intersect with them.
 /// If there is an intersection, we get the point of intersection and assign the color of the object the ray intersect with.
 /// Next we use the point of intersection and the lighting source in the scene to determine how lighting should affect the color at intersection point.
-fn cast_ray(ray: LightRay, scene: &[Sphere]) -> Option<IntersectionState> {
+fn cast_ray(ray: Ray, scene: &[Sphere]) -> Option<CollisionState> {
     let mut dist = f32::MAX;
     let mut hit_point: Option<Vox> = None;
     let mut normal = Vox::orig();
@@ -75,7 +102,7 @@ fn cast_ray(ray: LightRay, scene: &[Sphere]) -> Option<IntersectionState> {
     }
 
     // The question mark checks if hit_point is None or Some if it is None then function returns None otherwise it unpacks the Some
-    Some(IntersectionState {
+    Some(CollisionState {
         hit_point: hit_point?,
         normal,
         material,
@@ -85,7 +112,7 @@ fn cast_ray(ray: LightRay, scene: &[Sphere]) -> Option<IntersectionState> {
 
 /// This function jitters a point along a noraml vector. Why do we need that? [@ssloy explains](https://github.com/ssloy/tinyraytracer/wiki/Part-1:-understandable-raytracing#step-6-shadows):
 ///"Why is that? It's just that our point lies on the surface of the object, and (except for the question of numerical errors) any ray from this point will intersect the object itself."
-fn _jitter_along_normal(pt: Vox, direction: Vox, normal: Vox, jitter: f32) -> Vox {
+fn jitter_along_normal(pt: Vox, direction: Vox, normal: Vox, jitter: f32) -> Vox {
     let _shift = jitter.copysign(direction.dot(&normal));
     pt + normal.mult(_shift)
 }
@@ -101,8 +128,8 @@ fn light_is_shadowed(
     let ldir = (light_position - hit_point).normalized();
     let ldist = (light_position - hit_point).l2();
 
-    let shadow_orig = _jitter_along_normal(hit_point, ldir, hit_normal, DEFAULT_JITTER);
-    let shadow_ray = LightRay::new(ldir).set_origin(shadow_orig);
+    let shadow_orig = jitter_along_normal(hit_point, ldir, hit_normal, DEFAULT_JITTER);
+    let shadow_ray = Ray::new(ldir).set_origin(shadow_orig);
 
     if let Some(shadow) = cast_ray(shadow_ray, scene) {
         if (shadow.hit_point - shadow_orig).l2() < ldist {
@@ -113,15 +140,11 @@ fn light_is_shadowed(
 }
 
 fn get_light_adjustments(
-    intersection: &IntersectionState,
+    collision: &CollisionState,
     scene: &[Sphere],
     lights: &[LightSource],
 ) -> (f32, f32) {
-    let (normal, p, ray) = (
-        intersection.normal,
-        intersection.hit_point,
-        intersection.ray,
-    );
+    let (normal, p, ray) = (collision.normal, collision.hit_point, collision.ray);
 
     let mut diffuse = 0f32;
     let mut specular = 0f32;
@@ -138,7 +161,7 @@ fn get_light_adjustments(
             .reflect(normal)
             .dot(&ray.direction)
             .max(0.)
-            .powf(intersection.material.specular_exponent);
+            .powf(collision.material.specular_exponent);
 
         diffuse += cur.intensity * diff_coef;
         specular += cur.intensity * spec_coef;
@@ -207,7 +230,7 @@ fn render(spheres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
 
         let dir = Vox::new((x, y, -1.0)).normalized();
 
-        let ray = LightRay::new(dir);
+        let ray = Ray::new(dir);
 
         let reflected_material = reflective_ray_cast(ray, &spheres, &lights, 0);
         *pixel = reflected_material.pixel;
@@ -285,9 +308,5 @@ fn main() {
         .add((30., 20., 30.), 1.3)
         .build();
 
-    render(
-        spheres,
-        lights,
-        "static/assets/current.png",
-    );
+    render(spheres, lights, "static/assets/current.png");
 }

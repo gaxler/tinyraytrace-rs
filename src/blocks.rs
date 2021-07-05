@@ -92,10 +92,17 @@ pub struct Material {
     pub pixel: image::Rgb<u8>,
     /// How strong this material reflects direct light
     pub specular_exponent: f32,
+    /// How refracting is the material
+    pub refraction_index: f32,
     /// Whiteness of an object
-    albedo: (f32, f32),
+    // albedo: (f32, f32),
+    diff_mixing_coef: f32,
+    spec_mixing_coef: f32,
     reflection_mixing_coef: f32,
+    refraction_mixing_coef: f32,
 }
+
+type MaterialMixingWeights = (f32, f32, f32, f32);
 
 impl Material {
     fn _to_pixel(color: (f32, f32, f32)) -> image::Rgb<u8> {
@@ -105,24 +112,32 @@ impl Material {
 
     pub fn new(
         color: (f32, f32, f32),
-        albedo: (f32, f32),
+        weights: MaterialMixingWeights,
+        // albedo: (f32, f32),
         specular_exponent: f32,
-        reflection_mixing_coef: f32,
+        refraction_index: f32,
+        // reflection_mixing_coef: f32,
+        // refraction_mixing_coef: f32,
     ) -> Self {
         let pixel = Self::_to_pixel(color);
+        let (diff_mixing_coef, spec_mixing_coef, reflection_mixing_coef, refraction_mixing_coef) =
+            weights;
         Self {
             color,
             pixel,
-            albedo,
             specular_exponent,
+            refraction_index,
+            diff_mixing_coef,
+            spec_mixing_coef,
             reflection_mixing_coef,
+            refraction_mixing_coef,
         }
     }
 
     pub fn adjust_light(mut self, diffuse: f32, specular: f32) -> Self {
         let (r, g, b) = self.color;
-        let diff_albedo = diffuse * self.albedo.0;
-        let white_shift = specular * self.albedo.1;
+        let diff_albedo = diffuse * self.diff_mixing_coef;
+        let white_shift = specular * self.spec_mixing_coef;
 
         self.color = (
             (r * diff_albedo + white_shift).max(0.).min(1.),
@@ -134,26 +149,35 @@ impl Material {
         self
     }
 
-    /// Mix two materials color together, by the amount of reflectiveness of the first material.
-    pub fn mix_reflection(mut self, other: Material) -> Self {
-        // let (r1, g1, b1) = dbg!(self.color);
+    fn _mix_materials(mut self, other: Material, coef: f32) -> Self {
         let (r1, g1, b1) = self.color;
         let (r2, g2, b2) = other.color;
 
         let mixed_color = (
-            (r1 + self.reflection_mixing_coef * r2).max(0.).min(1.),
-            (g1 + self.reflection_mixing_coef * g2).max(0.).min(1.),
-            (b1 + self.reflection_mixing_coef * b2).max(0.).min(1.),
+            (r1 + coef * r2).max(0.).min(1.),
+            (g1 + coef * g2).max(0.).min(1.),
+            (b1 + coef * b2).max(0.).min(1.),
         );
 
         self.color = mixed_color;
         self.pixel = Self::_to_pixel(self.color);
         self
     }
+
+    /// Mix two materials color together, by the amount of reflectiveness of the first material.
+    pub fn mix_reflection(self, other: Material) -> Self {
+        self._mix_materials(other, self.reflection_mixing_coef)
+    }
+
+    /// Mix two materials color together, by the amount of refraction of the first material.
+    pub fn mix_refraction(self, other: Material) -> Self {
+        self._mix_materials(other, self.refraction_mixing_coef)
+    }
 }
 
 impl Default for Material {
     fn default() -> Self {
-        Self::new((0.2, 0.7, 0.8), (1.0, 0.0), 1.0, 0.0)
+        let weights: MaterialMixingWeights = (1.0, 0.0, 0.0, 0.);
+        Self::new((0.2, 0.7, 0.8), weights, 1.0, 1.0)
     }
 }

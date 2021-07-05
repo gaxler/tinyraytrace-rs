@@ -69,6 +69,28 @@ impl Vox {
         let proj_to_normal = self.dot(&normal);
         *self - normal.mult(proj_to_normal).mult(2.)
     }
+
+    pub fn refract(&self, normal: Vox, refract_index: f32) -> Self {
+        let cosi = -self.dot(&normal);
+        let eta_i = 1f32;
+        let eta_t = refract_index;
+        let mut n = normal;
+
+        let mut eta = eta_i / eta_t;
+
+        if cosi < 0. {
+            eta = 1. / eta;
+            n = n.mult(-1.);
+        }
+
+        let k = 1. - eta.powf(2.) * (1. - cosi.powf(2.));
+
+        if k < 0. {
+            Self::orig()
+        } else {
+            self.mult(eta) + n.mult(eta * cosi - k.sqrt())
+        }
+    }
 }
 
 impl Sub for Vox {

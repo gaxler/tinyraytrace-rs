@@ -151,35 +151,32 @@ fn get_light_adjustments(
 /// Our ray of lights don't stay in the same spot. If the hit some reflective material, they bounce off it like a ball.
 /// The is a recursive process. We start with a ray of light and cast it through the scene. Every time a ray hits some object and bounces off, well that's a new ray.
 /// In real life ( I guess ) this process can go on until light losses energy, here we put a hard limit on the number of bounces.
-fn reflective_ray_cast(
-    ray: LightRay,
-    scene: &[Sphere],
-    lights: &[LightSource],
-    depth: u32,
-) -> Material {
+fn reflective_ray_cast(ray: Ray, scene: &[Sphere], lights: &[LightSource], depth: u32) -> Material {
     match cast_ray(ray, scene) {
-        Some(intersection) if depth < MAX_RAY_BOUNCES => {
-            let ref_dir = intersection.ray.direction.reflect(intersection.normal);
-            let ref_orig = _jitter_along_normal(
-                intersection.hit_point,
-                ref_dir,
-                intersection.normal,
-                DEFAULT_JITTER,
-            );
-
+        Some(collision) if depth < MAX_RAY_BOUNCES => {
+            // refLECted ray cast
             let reflected_ = reflective_ray_cast(
-                LightRay::new(ref_dir).set_origin(ref_orig),
+                collision.reflected_ray(DEFAULT_JITTER),
                 scene,
                 lights,
                 depth + 1,
             );
 
-            let (diff, spec) = get_light_adjustments(&intersection, scene, lights);
+            // refRACted ray cast
+            let refracted_ = reflective_ray_cast(
+                collision.refracted_ray(DEFAULT_JITTER),
+                scene,
+                lights,
+                depth + 1,
+            );
 
-            intersection
+            let (diff, spec) = get_light_adjustments(&collision, scene, lights);
+
+            collision
                 .material
                 .adjust_light(diff, spec)
                 .mix_reflection(reflected_)
+                .mix_refraction(refracted_)
         }
         Some(intersection) => {
             let (diff, spec) = get_light_adjustments(&intersection, scene, lights);
@@ -265,13 +262,19 @@ impl LightBuilder {
 }
 
 fn main() {
-    let ivory = Material::new((0.4, 0.4, 0.3), (0.6, 0.3), 50., 0.3);
-    let red_rubber = Material::new((0.3, 0.1, 0.1), (0.9, 0.1), 10., 0.0);
-    let mirror = Material::new((1., 1., 1.), (0., 10.), 1425., 0.8);
+    let w_ivory = (0.6, 0.3, 0.1, 0.0);
+    let w_glass = (0., 0.5, 0.1, 0.8);
+    let w_rubber = (0.9, 0.1, 0.0, 0.0);
+    let w_mirror = (0., 10., 0.8, 0.0);
+
+    let ivory = Material::new((0.4, 0.4, 0.3), w_ivory, 50., 1.0);
+    let glass = Material::new((0.6, 0.7, 0.8), w_glass, 125., 1.5);
+    let red_rubber = Material::new((0.3, 0.1, 0.1), w_rubber, 10., 1.0);
+    let mirror = Material::new((1., 1., 1.), w_mirror, 1425., 1.0);
 
     let spheres = SphereBuilder::new()
         .add((-3., -0., -16.), 2.0, ivory)
-        .add((-1., -1.5, -12.), 2.0, mirror)
+        .add((-1., -1.5, -12.), 2.0, glass)
         .add((1.5, -0.5, -18.), 3.0, red_rubber)
         .add((7., 5., -18.), 4., mirror)
         .build();

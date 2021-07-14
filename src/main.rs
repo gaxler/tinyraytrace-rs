@@ -303,11 +303,10 @@ fn main() {
     let mirror = Material::new((1., 1., 1.), w_mirror, 1425., 1.0);
 
     let spheres = SphereBuilder::new()
-        // .add((-3., -0., -16.), 2.0, ivory)
-        // .add((-1., -1.5, -12.), 2.0, glass)
-        // .add((1.5, -0.5, -18.), 3.0, red_rubber)
+        .add((-3., -0., -16.), 2.0, ivory)
+        .add((-1., -1.5, -12.), 2.0, glass)
+        .add((1.5, -0.5, -18.), 3.0, red_rubber)
         .add((7., 5., -18.), 4., mirror)
-        // .add((-7., -4., -18.), 4., red_rubber)
         .build();
 
     let mut scene = spheres
@@ -316,8 +315,8 @@ fn main() {
         .collect::<Vec<SceneObject>>();
 
     let plain = Rectangle2D::new(
-        Vec3::new((0., -4., -1.)),
-        Vec3::new((2.,-4., -10.)),
+        Vec3::new((-3., -4., -12.)),
+        Vec3::new((3.,-4., -20.)),
         Vec3::new((1., 0., 0.)),
         red_rubber,
     );

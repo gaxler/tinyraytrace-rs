@@ -42,21 +42,23 @@ extern crate image;
 
 use blocks::*;
 use std::f32::consts::FRAC_2_PI;
-use vectors::Vox;
+use vectors::Vec3;
 
 const DEFAULT_JITTER: f32 = 0.001;
 const MAX_RAY_BOUNCES: u32 = 4;
 const CANVAS_WIDTH_HEIGHT: (u32, u32) = (1024, 768);
 
+type SceneObject = Box<dyn RayCollision>;
+
 struct CollisionState {
-    hit_point: Vox,
-    normal: Vox,
+    hit_point: Vec3,
+    normal: Vec3,
     material: Material,
     ray: Ray,
 }
 
 impl CollisionState {
-    fn _jitter(&self, dir: Vox, jitter: f32) -> Vox {
+    fn _jitter(&self, dir: Vec3, jitter: f32) -> Vec3 {
         jitter_along_normal(self.hit_point, dir, self.normal, jitter)
     }
 
@@ -82,10 +84,10 @@ impl CollisionState {
 /// This is the light ray simulation. We go over the objects in the scene and check if our light ray intersect with them.
 /// If there is an intersection, we get the point of intersection and assign the color of the object the ray intersect with.
 /// Next we use the point of intersection and the lighting source in the scene to determine how lighting should affect the color at intersection point.
-fn cast_ray(ray: Ray, scene: &[Sphere]) -> Option<CollisionState> {
+fn cast_ray(ray: Ray, scene: &[SceneObject]) -> Option<CollisionState> {
     let mut dist = f32::MAX;
-    let mut hit_point: Option<Vox> = None;
-    let mut normal = Vox::orig();
+    let mut hit_point: Option<Vec3> = None;
+    let mut normal = Vec3::orig();
     let mut material = Material::default();
 
     for s in scene.iter() {
@@ -93,8 +95,8 @@ fn cast_ray(ray: Ray, scene: &[Sphere]) -> Option<CollisionState> {
             // Hit is the point where our ray hits the sphere
             HitPoint::Point(p) if (p - ray.origin).l2() < dist => {
                 dist = (p - ray.origin).l2();
-                material = s.material;
-                normal = (p - s.center).normalized();
+                material = s.collision_material(p);
+                normal = s.collision_normal(p);
                 hit_point = Some(p);
             }
             _ => continue,
@@ -112,7 +114,7 @@ fn cast_ray(ray: Ray, scene: &[Sphere]) -> Option<CollisionState> {
 
 /// This function jitters a point along a noraml vector. Why do we need that? [@ssloy explains](https://github.com/ssloy/tinyraytracer/wiki/Part-1:-understandable-raytracing#step-6-shadows):
 ///"Why is that? It's just that our point lies on the surface of the object, and (except for the question of numerical errors) any ray from this point will intersect the object itself."
-fn jitter_along_normal(pt: Vox, direction: Vox, normal: Vox, jitter: f32) -> Vox {
+fn jitter_along_normal(pt: Vec3, direction: Vec3, normal: Vec3, jitter: f32) -> Vec3 {
     let _shift = jitter.copysign(direction.dot(&normal));
     pt + normal.mult(_shift)
 }
@@ -120,10 +122,10 @@ fn jitter_along_normal(pt: Vox, direction: Vox, normal: Vox, jitter: f32) -> Vox
 /// Shadow is like a negative light, we "cast a ray of shadow" for a certain hit point and light source.
 /// If the shadow ray hits the object, we know that the object is in shadow and we can't see the light source. ([Github Copilot](https://copilot.github.com/) wrote this line for me, how cool is that?)
 fn light_is_shadowed(
-    hit_point: Vox,
-    hit_normal: Vox,
-    light_position: Vox,
-    scene: &[Sphere],
+    hit_point: Vec3,
+    hit_normal: Vec3,
+    light_position: Vec3,
+    scene: &[SceneObject],
 ) -> bool {
     let ldir = (light_position - hit_point).normalized();
     let ldist = (light_position - hit_point).l2();
@@ -141,7 +143,7 @@ fn light_is_shadowed(
 
 fn get_light_adjustments(
     collision: &CollisionState,
-    scene: &[Sphere],
+    scene: &[SceneObject],
     lights: &[LightSource],
 ) -> (f32, f32) {
     let (normal, p, ray) = (collision.normal, collision.hit_point, collision.ray);
@@ -174,7 +176,12 @@ fn get_light_adjustments(
 /// Our ray of lights don't stay in the same spot. If the hit some reflective material, they bounce off it like a ball.
 /// The is a recursive process. We start with a ray of light and cast it through the scene. Every time a ray hits some object and bounces off, well that's a new ray.
 /// In real life ( I guess ) this process can go on until light losses energy, here we put a hard limit on the number of bounces.
-fn reflective_ray_cast(ray: Ray, scene: &[Sphere], lights: &[LightSource], depth: u32) -> Material {
+fn reflective_ray_cast(
+    ray: Ray,
+    scene: &[SceneObject],
+    lights: &[LightSource],
+    depth: u32,
+) -> Material {
     match cast_ray(ray, scene) {
         Some(collision) if depth < MAX_RAY_BOUNCES => {
             // refLECted ray cast
@@ -211,7 +218,7 @@ fn reflective_ray_cast(ray: Ray, scene: &[Sphere], lights: &[LightSource], depth
 
 /// This function builds an image by simulating light rays.
 /// Each pixel of an image is translated into a light ray. For each pixel, the light ray simulation returns the color the pixel should get.
-fn render(spheres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
+fn render(spheres: Vec<SceneObject>, lights: Vec<LightSource>, output: &str) {
     let (imgx, imgy) = CANVAS_WIDTH_HEIGHT;
     let mut imgbuf = image::ImageBuffer::new(imgx, imgy);
 
@@ -228,7 +235,7 @@ fn render(spheres: Vec<Sphere>, lights: Vec<LightSource>, output: &str) {
         let x = (2.0 * rel_w - 1.0) * tan_fov * wh_ratio;
         let y = -(2.0 * rel_h - 1.0) * tan_fov;
 
-        let dir = Vox::new((x, y, -1.0)).normalized();
+        let dir = Vec3::new((x, y, -1.0)).normalized();
 
         let ray = Ray::new(dir);
 
@@ -250,7 +257,7 @@ impl SphereBuilder {
 
     fn add(mut self, center: (f32, f32, f32), radius: f32, material: Material) -> Self {
         self.spheres.push(Sphere {
-            center: Vox::new(center),
+            center: Vec3::new(center),
             radius,
             material,
         });
@@ -273,7 +280,7 @@ impl LightBuilder {
 
     fn add(mut self, center: (f32, f32, f32), intensity: f32) -> Self {
         self.lights.push(LightSource {
-            position: Vox::new(center),
+            position: Vec3::new(center),
             intensity,
         });
         self
@@ -296,11 +303,26 @@ fn main() {
     let mirror = Material::new((1., 1., 1.), w_mirror, 1425., 1.0);
 
     let spheres = SphereBuilder::new()
-        .add((-3., -0., -16.), 2.0, ivory)
-        .add((-1., -1.5, -12.), 2.0, glass)
-        .add((1.5, -0.5, -18.), 3.0, red_rubber)
+        // .add((-3., -0., -16.), 2.0, ivory)
+        // .add((-1., -1.5, -12.), 2.0, glass)
+        // .add((1.5, -0.5, -18.), 3.0, red_rubber)
         .add((7., 5., -18.), 4., mirror)
+        // .add((-7., -4., -18.), 4., red_rubber)
         .build();
+
+    let mut scene = spheres
+        .iter()
+        .map(|&v| Box::new(v) as SceneObject)
+        .collect::<Vec<SceneObject>>();
+
+    let plain = Rectangle2D::new(
+        Vec3::new((0., -4., -1.)),
+        Vec3::new((2.,-4., -10.)),
+        Vec3::new((1., 0., 0.)),
+        red_rubber,
+    );
+
+    scene.push(Box::new(plain));
 
     let lights = LightBuilder::new()
         .add((-20., 20., 20.), 1.5)
@@ -308,5 +330,5 @@ fn main() {
         .add((30., 20., 30.), 1.3)
         .build();
 
-    render(spheres, lights, "static/assets/current.png");
+    render(scene, lights, "static/assets/current.png");
 }

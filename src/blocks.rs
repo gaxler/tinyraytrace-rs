@@ -1,24 +1,129 @@
 //! In our world we have Spheres, Light Sources, Light Rays ang Materials.
 
-use crate::vectors::Vox;
+use crate::vectors::Vec3;
+
+/// We need to determine if a ray of light hits a specific object or not. This trait contains the logic of how to determine that.
+pub trait RayCollision {
+    fn ray_intersect(&self, ray: &Ray) -> HitPoint;
+
+    fn collision_normal(&self, hit_point: Vec3) -> Vec3;
+
+    fn collision_material(&self, hit_point: Vec3) -> Material;
+}
+
+pub struct Plane {
+    pub normal: Vec3,
+    pub point: Vec3,
+}
+
+impl RayCollision for Plane {
+    fn ray_intersect(&self, ray: &Ray) -> HitPoint {
+        let orig_to_point = self.point - ray.origin;
+        let origin_to_plane_dist = self.normal.dot(&orig_to_point);
+        let cos_dir_norm = self.normal.dot(&ray.direction);
+
+        if cos_dir_norm * origin_to_plane_dist < 0. {
+            HitPoint::None
+        } else {
+            let dist_to_collision = origin_to_plane_dist / cos_dir_norm;
+            HitPoint::Point(ray.walk_dir(dist_to_collision))
+        }
+    }
+
+    fn collision_normal(&self, hit_point: Vec3) -> Vec3 {
+        self.normal
+    }
+
+    fn collision_material(&self, hit_point: Vec3) -> Material {
+        Material::default()
+    }
+}
+
+/// 2D rectangle in a 3D space
+pub struct Rectangle2D {
+    width: Vec3,
+    height: Vec3,
+    plane: Plane,
+    material: Material,
+}
+
+impl Rectangle2D {
+    /// We need 3 points to define a plane.
+    /// Here we use two points on a plane and a vector that is used as the side of the rectangle.
+    pub fn new(origin: Vec3, center: Vec3, side_dir: Vec3, material: Material) -> Self {
+        // Distance from
+        let z = center - origin;
+        let e1 = side_dir.normalized();
+
+        let u = z.project_on(&e1);
+
+        let e2 = (z - u).normalized();
+
+        let w = 2. * z.project_on(&e1).l2();
+        let h = 2. * z.project_on(&e2).l2();
+        let normal = e1.cross(&e2);
+
+        let plane = Plane {
+            normal,
+            point: origin,
+        };
+
+        Self {
+            width: e1.mult(w),
+            height: e2.mult(h),
+            plane,
+            material,
+        }
+    }
+}
+
+impl RayCollision for Rectangle2D {
+    /// This is easy. We look for plane-ray intersection and check if it is withing the rectangle
+    fn ray_intersect(&self, ray: &Ray) -> HitPoint {
+        match self.plane.ray_intersect(ray) {
+            HitPoint::None => HitPoint::None,
+            HitPoint::Point(p) => {
+                // plane.point is the origin of the rectangle.
+                // rectangle stretches across self.width, self.height
+                let d = p - self.plane.point;
+                if let (true, true) = (
+                    d.project_on(&self.width).l2() <= self.width.l2(),
+                    d.project_on(&self.height).l2() <= self.height.l2(),
+                ) {
+                    HitPoint::Point(p)
+                } else {
+                    HitPoint::None
+                }
+            }
+        }
+    }
+
+    fn collision_normal(&self, hit_point: Vec3) -> Vec3 {
+        self.plane.normal
+    }
+
+    fn collision_material(&self, hit_point: Vec3) -> Material {
+        self.material
+    }
+}
+
 /// A sphere is a 3-D ball, it has a center point and a radius.
 #[derive(Debug, Clone, Copy)]
 pub struct Sphere {
-    pub center: Vox,
+    pub center: Vec3,
     pub radius: f32,
     pub material: Material,
 }
 
 /// Point where our ray hits and object.
 pub enum HitPoint {
-    Point(Vox),
+    Point(Vec3),
     None,
 }
 
-impl Sphere {
-    /// We need to determine if a ray of light hits a specific object or not. This function contains the logic of how to determine that.
-    /// In case of a sphere it's pretty easy, we need to project the center of the sphere on the ray of light and see if the projection is inside the sphere
-    pub fn ray_intersect(&self, ray: &Ray) -> HitPoint {
+/// In case of a sphere it's pretty easy, we need to project the center of the sphere on the ray of light and see if the projection is inside the sphere    
+impl RayCollision for Sphere {
+    fn ray_intersect(&self, ray: &Ray) -> HitPoint {
         let canonical_center = self.center - ray.origin;
         let center_projected_ray = canonical_center.project_on(&ray.direction);
 
@@ -43,35 +148,45 @@ impl Sphere {
             _ => HitPoint::None,
         }
     }
+
+    fn collision_normal(&self, hit_point: Vec3) -> Vec3 {
+        (hit_point - self.center).normalized()
+    }
+
+    fn collision_material(&self, hit_point: Vec3) -> Material {
+        self.material
+    }
 }
 
 #[derive(Clone, Copy)]
 pub struct LightSource {
-    pub position: Vox,
+    pub position: Vec3,
     pub intensity: f32,
 }
 
+/// What is the difference between a Vec3 and a Ray? After all Vec3 is a Ray that starts at the origin.
+/// Well Ray is infinite length. That's why the direction can be unit norm. Vec3 length is finite (it's norm).
 #[derive(Clone, Copy)]
 pub struct Ray {
-    pub origin: Vox,
+    pub origin: Vec3,
     /// Unit norm direction vector
-    pub direction: Vox,
+    pub direction: Vec3,
 }
 
 impl Ray {
-    pub fn new(dir: Vox) -> Self {
+    pub fn new(dir: Vec3) -> Self {
         Self {
-            origin: Vox::orig(),
+            origin: Vec3::orig(),
             direction: dir.normalized(),
         }
     }
 
-    pub fn set_origin(mut self, origin: Vox) -> Self {
+    pub fn set_origin(mut self, origin: Vec3) -> Self {
         self.origin = origin;
         self
     }
 
-    pub fn walk_dir(&self, distance: f32) -> Vox {
+    pub fn walk_dir(&self, distance: f32) -> Vec3 {
         self.origin + self.direction.mult(distance)
     }
 }

@@ -315,13 +315,13 @@ fn main() {
         .collect::<Vec<SceneObject>>();
 
     let plain = Rectangle2D::new(
-        Vec3::new((-3., -4., -12.)),
-        Vec3::new((3.,-4., -20.)),
-        Vec3::new((1., 0., 0.)),
+        Vec3::new((-8., -4., -8.)),
+        Vec3::new((3.,-4., -16.)),
+        Vec3::new((1., -0.05, 0.)),
         red_rubber,
     );
 
-    scene.push(Box::new(plain));
+    scene.push(Box::new(dbg!(plain)));
 
     let lights = LightBuilder::new()
         .add((-20., 20., 20.), 1.5)

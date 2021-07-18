@@ -11,6 +11,7 @@ pub trait RayCollision {
     fn collision_material(&self, hit_point: Vec3) -> Material;
 }
 
+#[derive(Debug)]
 pub struct Plane {
     pub normal: Vec3,
     pub point: Vec3,
@@ -40,6 +41,7 @@ impl RayCollision for Plane {
 }
 
 /// 2D rectangle in a 3D space
+#[derive(Debug)]
 pub struct Rectangle2D {
     width: Vec3,
     height: Vec3,
@@ -86,10 +88,14 @@ impl RayCollision for Rectangle2D {
                 // plane.point is the origin of the rectangle.
                 // rectangle stretches across self.width, self.height
                 let d = p - self.plane.point;
-                if let (true, true) = (
-                    d.project_on(&self.width).l2() <= self.width.l2(),
-                    d.project_on(&self.height).l2() <= self.height.l2(),
-                ) {
+                let w_porj = d.project_on(&self.width);
+                let h_proj = d.project_on(&self.height);
+                if let (true, true, true, true) = (
+                    w_porj.l2() <= self.width.l2(),
+                    h_proj.l2() <= self.height.l2(),
+                    w_porj.dot(&self.width) > 0.,
+                    h_proj.dot(&self.height) > 0.
+                ){
                     HitPoint::Point(p)
                 } else {
                     HitPoint::None

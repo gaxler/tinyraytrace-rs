@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["tinyraytracer"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"tinyraytracer/blocks/struct.Material.html\" title=\"struct tinyraytracer::blocks::Material\">Material</a>","synthetic":false,"types":["tinyraytracer::blocks::Material"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
